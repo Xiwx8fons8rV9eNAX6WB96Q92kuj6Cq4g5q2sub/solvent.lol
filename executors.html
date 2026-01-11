@@ -73,55 +73,25 @@
       executorsGrid.innerHTML = '<div class="loading-state">loading executors...</div>';
       
       const apiUrl = 'https://weao.xyz/api/status/exploits';
-      const proxies = [
-        {
-          url: `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`,
-          transform: (data) => JSON.parse(data.contents)
-        },
-        {
-          url: `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`,
-          transform: (data) => data
-        },
-        {
-          url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`,
-          transform: (data) => data
-        },
-        {
-          url: `https://cors.eu.org/${apiUrl}`,
-          transform: (data) => data
-        },
-        {
-          url: `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
-          transform: (data) => data
-        }
-      ];
       
-      for (let i = 0; i < proxies.length; i++) {
-        try {
-          console.log(`Trying proxy ${i + 1}/${proxies.length}...`);
-          const response = await fetch(proxies[i].url, {
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-          
-          if (!response.ok) {
-            console.log(`Proxy ${i + 1} failed with status ${response.status}`);
-            continue;
+      try {
+        console.log('Trying direct API call...');
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Accept': 'application/json'
           }
-          
-          const rawData = await response.json();
-          const data = proxies[i].transform(rawData);
-          
-          console.log(`Proxy ${i + 1} succeeded!`, data);
-          renderExecutors(data);
-          return;
-        } catch (error) {
-          console.log(`Proxy ${i + 1} error:`, error.message);
-          if (i === proxies.length - 1) {
-            executorsGrid.innerHTML = '<div class="error-state">failed to load executors check your connection</div>';
-          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API returned status ${response.status}`);
         }
+        
+        const data = await response.json();
+        console.log('Direct API call succeeded!', data);
+        renderExecutors(data);
+      } catch (error) {
+        console.log('Direct API error:', error.message);
+        executorsGrid.innerHTML = '<div class="error-state">failed to load executors. the api may be blocking requests from browsers.</div>';
       }
     }
 
