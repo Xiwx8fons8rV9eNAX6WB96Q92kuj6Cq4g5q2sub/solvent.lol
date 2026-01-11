@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta property="og:description" content="0_o">
-  <meta name="theme-color" data-react-helmet="true" content=
-  "#000000">
+  <meta name="theme-color" data-react-helmet="true" content="#000000">
   <link rel="icon" type="image/png" href="https://files.catbox.moe/rpqzpf.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,18 +72,35 @@
       const executorsGrid = document.getElementById('executors-grid');
       executorsGrid.innerHTML = '<div class="loading-state">loading executors...</div>';
       
-      try {
-        const apiUrl = 'https://weao.xyz/api/status/exploits';
-        const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch executors');
+      const apiUrl = 'https://weao.xyz/api/status/exploits';
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`,
+        `https://cors-anywhere.herokuapp.com/${apiUrl}`,
+        `https://api.thebugging.com/cors-proxy?url=${encodeURIComponent(apiUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`
+      ];
+      
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          console.log(`Trying proxy ${i + 1}/${proxies.length}...`);
+          const response = await fetch(proxies[i]);
+          
+          if (!response.ok) {
+            console.log(`Proxy ${i + 1} failed with status ${response.status}`);
+            continue;
+          }
+          
+          const data = await response.json();
+          console.log(`Proxy ${i + 1} succeeded!`);
+          renderExecutors(data);
+          return;
+        } catch (error) {
+          console.log(`Proxy ${i + 1} error:`, error.message);
+          if (i === proxies.length - 1) {
+            executorsGrid.innerHTML = '<div class="error-state">failed to load executors check your connection</div>';
+          }
         }
-        
-        const data = await response.json();
-        renderExecutors(data);
-      } catch (error) {
-        executorsGrid.innerHTML = '<div class="error-state">failed to load executors check your connection</div>';
       }
     }
 
