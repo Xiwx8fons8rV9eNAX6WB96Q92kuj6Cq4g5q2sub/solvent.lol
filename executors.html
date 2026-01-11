@@ -68,16 +68,63 @@
       return div.innerHTML;
     }
 
+    const USER_AGENT = 'WEAO-3PService';
+    const BASE_URL = 'https://whatexpsare.online/api';
+    const FETCH_TIMEOUT = 10000;
+    const CACHE_TTL = 30000;
+    
+    const cache = new Map();
+    
+    function setCache(key, val, ttl = CACHE_TTL) {
+      cache.set(key, { val, exp: Date.now() + ttl });
+    }
+    
+    function getCache(key) {
+      const c = cache.get(key);
+      if (!c || Date.now() > c.exp) {
+        cache.delete(key);
+        return null;
+      }
+      return c.val;
+    }
+    
+    async function fetchWithTimeout(url, options, timeout = FETCH_TIMEOUT) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        return response;
+      } catch (err) {
+        clearTimeout(timer);
+        throw err;
+      }
+    }
+    
     async function loadExecutors() {
       const executorsGrid = document.getElementById('executors-grid');
       executorsGrid.innerHTML = '<div class="loading-state">loading executors...</div>';
       
-      const apiUrl = 'https://weao.xyz/api/status/exploits';
+      const endpoint = '/status/exploits';
+      const url = `${BASE_URL}${endpoint}`;
+      
+      // Check cache first
+      const cached = getCache(url);
+      if (cached) {
+        console.log('Using cached data');
+        renderExecutors(cached);
+        return;
+      }
       
       try {
-        console.log('Trying direct API call...');
-        const response = await fetch(apiUrl, {
+        console.log('Fetching from:', url);
+        const response = await fetchWithTimeout(url, {
           headers: {
+            'User-Agent': USER_AGENT,
             'Accept': 'application/json'
           }
         });
@@ -87,11 +134,20 @@
         }
         
         const data = await response.json();
-        console.log('Direct API call succeeded!', data);
+        console.log('API call succeeded!', data);
+        
+        // Cache the result
+        setCache(url, data);
+        
         renderExecutors(data);
       } catch (error) {
-        console.log('Direct API error:', error.message);
-        executorsGrid.innerHTML = '<div class="error-state">failed to load executors. the api may be blocking requests from browsers.</div>';
+        console.error('Fetch error:', error.message);
+        
+        if (error.name === 'AbortError') {
+          executorsGrid.innerHTML = '<div class="error-state">request timed out - try again</div>';
+        } else {
+          executorsGrid.innerHTML = '<div class="error-state">failed to load executors - check console for details</div>';
+        }
       }
     }
 
